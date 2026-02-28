@@ -1,12 +1,13 @@
 name: Tag on PR Merge (frontend/backend)
 
 on:
-  push:
-  workflow_dispatch:
+  pull_request:
+    types: [opened]
+    branches: [main]
 
-# permissions:
-#   contents: write
-# pull-requests: read
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
   tag:
