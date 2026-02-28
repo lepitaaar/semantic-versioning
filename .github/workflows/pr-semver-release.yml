@@ -2,7 +2,7 @@ name: Tag on PR Merge (frontend/backend)
 
 on:
   pull_request:
-    # types: [opened]
+    types: [closed]
     branches: [main]
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   tag:
-    # if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +48,9 @@ jobs:
           echo "back=$back" >> $GITHUB_OUTPUT
           echo "bump=$bump" >> $GITHUB_OUTPUT
 
-      - name: Compute & push tag(s)
+      - name: Compute & push tag(s) with release notes
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
           bump="${{ steps.labels.outputs.bump }}"
 
@@ -69,8 +71,24 @@ jobs:
 
             new_tag="${prefix}/v${new_version}"
             echo "Creating tag: $new_tag (from $latest_tag, bump=$bump)"
+            # 태그 푸시
             git tag "$new_tag"
             git push origin "$new_tag"
+
+            # GitHub Release 생성 (이전 태그 기반 자동 릴리즈 노트)
+            release_args=(
+              "$new_tag"
+              --title "${prefix} ${new_tag#${prefix}/}"
+              --generate-notes
+              --latest=false
+            )
+
+            # 이전 태그가 존재하면 비교 기준으로 지정
+            if git rev-parse "$latest_tag" >/dev/null 2>&1; then
+              release_args+=(--notes-start-tag "$latest_tag")
+            fi
+
+            gh release create "${release_args[@]}"
           }
 
           if [ "${{ steps.labels.outputs.front }}" != "true" ] && [ "${{ steps.labels.outputs.back }}" != "true" ]; then
